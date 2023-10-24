@@ -1,0 +1,1959 @@
+---
+title: "Lumumba et al 2023 - Data cleaning, descriptive statistics, statistical analyses for EHP submission"
+author: "Anne Riederer ScD, email: anneried@uw.edu"
+date: "Feb 2023, May 2023, Jun 2023, Oct 2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+Load R packages needed for these analyses (note: packages already installed)
+
+```{r, include=FALSE}
+
+pacman::p_load(tidyverse,ggplot2,ggpmisc,dplyr,purrr,grid,gridExtra,janitor,haven,ggpmisc,
+               kableExtra,flextable,readxl,readr,EnvStats, lme4)
+
+```
+
+Set working directory
+
+```{r set wd, echo = FALSE, include = TRUE}
+
+#[change as needed]
+
+setwd("~/Documents/r_projects/lumumba et al 2023")
+
+getwd()
+
+```
+
+[Please contact the corresponding author by email for access to the deidentified data]
+
+note: working with dates/times from Excel to R is tricky; here is a helpful website:
+  https://epirhandbook.com/en/working-with-dates.html (accessed 17 Jan 2023)
+
+```{r read in data, echo = FALSE, include = TRUE}
+
+library(readxl)
+bll <- read_excel("~/Documents/r_projects/lumumba et al 2023/Lumumba et al - raw data - import to R.xlsx")
+
+```
+
+Peek at & clean data
+
+```{r, echo=FALSE, include=TRUE}
+
+names(bll)
+
+table(bll$sample_id)
+
+#reformat interview date as date (R imported it as text, i.e., character string)
+bll <- bll %>%
+  mutate(interview_date = as.Date.POSIXct(interview_date, tz="UTC"))
+class(bll$interview_date)
+bll$interview_date <- format(bll$interview_date, "%m-%d-%Y")
+#double check the dates look OK
+print(bll$interview_date) #they do
+
+table(bll$residence_area)
+
+#round BLLs to 3 digits
+bll$bll1_ugdl_mat <- round(bll$bll1_ugdl_mat, digits=3)
+print(bll$bll1_ugdl_mat)
+bll$bll2_ugdl_mat <- round(bll$bll2_ugdl_mat, digits=3)
+print(bll$bll2_ugdl_mat)
+bll$bll3_ugdl_mat <- round(bll$bll3_ugdl_mat, digits=3)
+print(bll$bll3_ugdl_mat)
+bll$bll_mean_ugdl_mat <- round(bll$bll_mean_ugdl_mat, digits=3)
+print(bll$bll_mean_ugdl_mat)
+bll$bll_sd_ugdl_mat <- round(bll$bll_sd_ugdl_mat, digits=3)
+print(bll$bll_sd_ugdl_mat)
+
+bll$bll1_ugdl_cord <- round(bll$bll1_ugdl_cord, digits=3)
+print(bll$bll1_ugdl_cord)
+bll$bll2_ugdl_cord <- round(bll$bll2_ugdl_cord, digits=3)
+print(bll$bll2_ugdl_cord)
+bll$bll3_ugdl_cord <- round(bll$bll3_ugdl_cord, digits=3)
+print(bll$bll3_ugdl_cord)
+bll$bll_mean_ugdl_cord <- round(bll$bll_mean_ugdl_cord, digits=3)
+print(bll$bll_mean_ugdl_cord)
+bll$bll_sd_ugdl_cord <- round(bll$bll_sd_ugdl_cord, digits=3)
+print(bll$bll_sd_ugdl_cord)
+
+table(bll$age)
+
+table(bll$age_cat)
+
+table(bll$occup)
+#clean up occupation categories (to get consistent spelling & capitalization)
+bll <- bll %>%
+  mutate(occup = case_when(
+    occup %in% c("Battery recycling/smellting","Battery recycling/smelting","Battery recyling/smelting" ) ~ "Battery recycling/smelting", TRUE ~ occup))
+
+bll <- bll %>%
+  mutate(occup = case_when(
+    occup %in% c("cook","Cook") ~ "Cook", TRUE ~ occup))
+
+bll <- bll %>%
+  mutate(occup = case_when(
+    occup %in% c("waiter","Waiter") ~ "Waiter", TRUE ~ occup))
+
+table(bll$occup)
+
+table(bll$occup_years)
+class(bll$occup_years)
+
+#R did not import the "5-10" category correctly, so recode it
+
+bll <- bll %>%
+  mutate(occup_years = case_when(
+    occup_years %in% c("45056") ~ "5-10", TRUE ~ occup_years))
+table(bll$occup_years)
+
+table(bll$education)
+
+table(bll$paint_house)
+table(bll$paint_peel) #note: N/A means "N" to paint_house
+table(bll$paint_peel,bll$paint_house)
+
+table(bll$paint_house_years)
+table(bll$construction)
+table(bll$dumpsite)
+table(bll$batteryrecycling)
+table(bll$pica)
+table(bll$old_pipes)
+table(bll$glazed_pottery)
+
+bll <- bll %>%
+  mutate(glazed_pottery = case_when(
+    glazed_pottery %in% c("y", "Y") ~ "Y", TRUE ~ glazed_pottery))
+table(bll$glazed_pottery)
+
+```
+Calculate mean (SD) maternal age (years)
+
+```{r mean age & SDs, echo=TRUE, include=TRUE}
+
+#arithmetic
+age_year <- bll %>%
+  summarize(n = n(),
+            age_years_mean = mean(age),
+            age_years_sd = sd(age))
+flextable(age_year)
+
+```
+
+Calculate median & IQR (interquartile range) maternal age (years)
+
+```{r mean age & SDs, echo=TRUE, include=TRUE}
+
+age_med <- bll %>%
+  summarize(n = n(),
+            age_years_median = median(age),
+            age_years_iqr = iqr(age))
+flextable(age_med)
+
+```
+Frequency table of mean (SD) years in occupation
+
+```{r mean age & SDs, echo=TRUE, include=TRUE}
+
+table(bll$occup_years)
+
+
+```
+Check if mean BLLs are normally distributed by plotting histograms of untransformed and log transformed observations
+
+```{r plot histograms of blls, echo=TRUE, include=TRUE}
+
+#get min and max to set X axis limits
+#maternal
+min(bll$bll_mean_ugdl_mat)
+max(bll$bll_mean_ugdl_mat)
+
+hist_bll_mat <- ggplot(bll, aes(bll_mean_ugdl_mat)) +
+              geom_histogram(binwidth=1) +
+              scale_x_continuous(name="Maternal blood Pb (ug/dL) (mean of triplicates)", 
+                     breaks=seq(0,100,5),
+                     limits=c(0,100)) +
+  scale_y_continuous(name="Count")
+hist_bll_mat + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 12))
+
+#cord
+min(bll$bll_mean_ugdl_cord)
+max(bll$bll_mean_ugdl_cord)
+
+hist_bll_cord <- ggplot(bll, aes(bll_mean_ugdl_cord)) +
+              geom_histogram(binwidth=0.5) +
+              scale_x_continuous(name="Cord blood Pb (ug/dL) (mean of triplicates)", 
+                     breaks=seq(0,10,1),
+                     limits=c(0,10)) +
+  scale_y_continuous(name="Count")
+hist_bll_cord + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 12))
+
+#log transform measurements
+bll$bll_mean_ugdl_mat_ln <- log(bll$bll_mean_ugdl_mat)
+bll$bll_mean_ugdl_cord_ln <- log(bll$bll_mean_ugdl_cord)
+
+#maternal
+min(bll$bll_mean_ugdl_mat_ln)
+max(bll$bll_mean_ugdl_mat_ln)
+
+hist_bll_mat_ln <- ggplot(bll, aes(bll_mean_ugdl_mat_ln)) +
+              geom_histogram(binwidth=0.1) +
+              scale_x_continuous(name="Log maternal blood Pb (mean of triplicates)", 
+                     breaks=seq(0,5,0.5),
+                     limits=c(0,5)) +
+  scale_y_continuous(name="Count")
+hist_bll_mat_ln + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 12))
+
+#cord
+min(bll$bll_mean_ugdl_cord_ln)
+max(bll$bll_mean_ugdl_cord_ln)
+
+hist_bll_cord_ln <- ggplot(bll, aes(bll_mean_ugdl_cord_ln)) +
+              geom_histogram(binwidth=0.1) +
+              scale_x_continuous(name="Log cord blood Pb (mean of triplicates)", 
+                     breaks=seq(-0.5,3),
+                     limits=c(-0.5,3)) +
+  scale_y_continuous(name="Count")
+hist_bll_cord_ln + theme(axis.text = element_text(size = 12), axis.title = element_text(size = 12))
+
+```
+
+From the shapes of the histograms, we might conclude that the data are log-normal and we should be reporting geometric means and geometric standard deviations (GSDs)
+
+Calculate arithmetic and geometric means and SDs
+
+```{r bll arithmetic means & SDs, echo=TRUE, include=TRUE}
+
+#arithmetic
+blls_descr_arith <- bll %>%
+  summarize(n = n(),
+            bll_ugdl_mat_min = min(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_mat_max = max(bll_mean_ugdl_mat, na.rm=TRUE), 
+            bll_ugdl_mat_mean = mean(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_mat_sd = sd(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_mat_median = median(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_cord_min = min(bll_mean_ugdl_cord, na.rm=TRUE),
+            bll_ugdl_cord_max = max(bll_mean_ugdl_cord, na.rm=TRUE),            
+            bll_ugdl_cord_mean = mean(bll_mean_ugdl_cord, na.rm=TRUE),
+            bll_ugdl_cord_sd = sd(bll_mean_ugdl_cord, na.rm=TRUE),
+            bll_ugdl_cord_median = median(bll_mean_ugdl_cord, na.rm=TRUE),) 
+flextable(blls_descr_arith)
+
+```
+
+```{r bll geo means & SDs, echo=TRUE, include=TRUE}
+
+#use geoMean and geoSD functions in EnvStats package to calculate geo means & SDs
+blls_descr_geo <- bll %>%
+  summarize(n = n(),
+            bll_ugdl_mat_geomean = geoMean(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_mat_gsd = geoSD(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_cord_geomean = geoMean(bll_mean_ugdl_cord, na.rm=TRUE),
+            bll_ugdl_cord_gsd = geoSD(bll_mean_ugdl_cord, na.rm=TRUE))
+flextable(blls_descr_geo)
+
+```
+Calculate Spearman correlation coefficient (rho) between maternal and cord BLLs
+
+```{r maternal vs. cord Spearman rho, echo=TRUE, include=TRUE}
+
+cor.test(bll$bll_mean_ugdl_mat, bll$bll_mean_ugdl_cord, method="spearman")
+
+```
+___
+
+#Calculate maternal BLL geo means & SDs by exposure factor
+
+Age category
+
+```{r geomeans age cat, echo=TRUE, include=TRUE}
+
+#use geoMean and geoSD functions in EnvStats package to calculate geo means & SDs
+blls_descr_geo_agecat <- bll %>% group_by(age_cat) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+
+blls_descr_geo_agecat <- blls_descr_geo_agecat %>%
+            arrange(factor(age_cat, levels = c("<25","25-29","30-34",">35")))
+flextable(blls_descr_geo_agecat)
+
+```
+Kruskal-Wallis (non-parametric) test of difference in BLLs by age category
+
+```{r kruskal-wallis age cat, echo=TRUE, include=TRUE}
+
+kruskal.test(bll_mean_ugdl_mat~age_cat, data = bll)
+kruskal.test(bll_mean_ugdl_cord~age_cat, data = bll)
+```
+
+Residence area
+
+```{r geomeans residence area, echo=TRUE, include=TRUE}
+
+blls_descr_geo_residence <- bll %>% group_by(residence_area) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_residence)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference
+
+```{r wilcoxon residence area, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~residence_area, data = bll)
+wilcox.test(bll_mean_ugdl_cord~residence_area, data = bll)
+
+```
+
+Education
+
+```{r geomeans education, echo=TRUE, include=TRUE}
+
+blls_descr_geo_education <- bll %>% group_by(education) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_education)
+
+```
+Kruskal-Wallis (non-parametric) test of difference 
+
+```{r kruskal-wallis education, echo=TRUE, include=TRUE}
+
+kruskal.test(bll_mean_ugdl_mat~education, data = bll)
+kruskal.test(bll_mean_ugdl_cord~education, data = bll)
+
+```
+Recode education - add tertiary to secondary to make “secondary or higher” (note that most were secondary in footnote, where appropriate (FW/EL/AMR 2/28/23)
+
+```{r geomeans education_recode, echo=TRUE, include=TRUE}
+table(bll$education)
+
+bll$educ_recode <- bll$education
+table(bll$educ_recode)
+
+bll <- bll %>%
+  mutate(educ_recode = case_when(
+    education=="Secondary" ~ "Secondary or higher", 
+    education=="Tertiary" ~ "Secondary or higher", 
+    TRUE ~ educ_recode))
+table(bll$educ_recode)
+
+blls_descr_geo_educ_recode <- bll %>% group_by(educ_recode) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_educ_recode)
+
+```
+```{r kruskal-wallis education recode, echo=TRUE, include=TRUE}
+
+kruskal.test(bll_mean_ugdl_mat~educ_recode, data = bll)
+kruskal.test(bll_mean_ugdl_cord~educ_recode, data = bll)
+
+```
+
+Now, without the battery workers
+
+```{r kruskal-wallis education recode, echo=TRUE, include=TRUE}
+
+kruskal.test(bll_mean_ugdl_mat~educ_recode, data = bll_xbatt)
+kruskal.test(bll_mean_ugdl_cord~educ_recode, data = bll_xbatt)
+
+```
+
+Occupation
+
+```{r geomeans occupation, echo=TRUE, include=TRUE}
+
+blls_descr_geo_occupation <- bll %>% group_by(occup) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_occupation)
+
+```
+Kruskal-Wallis (non-parametric) test of difference 
+
+```{r kruskal-wallis occupation, echo=TRUE, include=TRUE}
+
+kruskal.test(bll_mean_ugdl_mat~occup, data = bll)
+kruskal.test(bll_mean_ugdl_cord~occup, data = bll)
+
+```
+
+Occupation recode - ULAB recycling vs. other
+
+```{r geomeans occup_recode, echo=TRUE, include=TRUE}
+
+bll$occup_recode <- "Other"
+
+bll <- bll %>%
+  mutate(occup_recode = case_when(
+    occup=="Battery recycling/smelting" ~ "Battery recycling", 
+    TRUE ~ occup_recode))
+table(bll$occup_recode)
+
+```
+
+Residence in a painted house (yes/no)
+
+```{r geomeans paint house, echo=TRUE, include=TRUE}
+
+blls_descr_geo_painthouse <- bll %>% group_by(paint_house) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_painthouse)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference 
+
+```{r wilcoxon painted house, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~paint_house, data = bll)
+wilcox.test(bll_mean_ugdl_cord~paint_house, data = bll)
+
+```
+
+Calculate median & IQR (interquartile range) years living in a painted house
+
+```{r median years painted house, echo=TRUE, include=TRUE}
+
+painthouse_med <- bll %>% filter(paint_house=='Y') %>% 
+            summarize(n = n(),
+            painthouse_years_median = median(paint_house_years),
+            painthouse_years_iqr = iqr(paint_house_years))
+flextable(painthouse_med)
+
+```
+
+House paint peeling or chipping (yes to residence in a painted house) (yes/no)
+
+```{r geomeans paint peel, echo=TRUE, include=TRUE}
+
+blls_descr_geo_paintpeel <- bll %>% filter(paint_house=='Y') %>% group_by(paint_peel) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_paintpeel)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference 
+
+```{r wilcoxon paint peel, echo=TRUE, include=TRUE}
+
+bll_paint <- bll %>% filter(paint_house=='Y')
+
+wilcox.test(bll_mean_ugdl_mat~paint_peel, data = bll_paint)
+wilcox.test(bll_mean_ugdl_cord~paint_peel, data = bll_paint)
+
+```
+
+Number of years living in the painted house (yes to residence in a painted house) 
+
+```{r geomeans years in painted house, echo=TRUE, include=TRUE}
+
+blls_descr_geo_painthouseyears <- bll %>% filter(paint_house=='Y') %>% group_by(paint_house_years) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_painthouseyears)
+
+```
+Spearman correlation coefficients painted house years vs. BLLs
+
+```{r spearman rhos - years in painted house, echo=TRUE, include=TRUE}
+
+cor.test(bll_paint$bll_mean_ugdl_mat, bll_paint$paint_house_years, method="spearman")
+cor.test(bll_paint$bll_mean_ugdl_cord, bll_paint$paint_house_years, method="spearman")
+
+```
+
+Recode painted house variables to:
+1. don’t live in painted house
+2. live in painted house but no peeling/chipping
+3. live in painted house and peeling/chipping
+
+
+```{r geomeans paint peel, echo=TRUE, include=TRUE}
+
+table(bll$paint_house)
+table(bll$paint_peel)
+
+bll$paintedhouse <- bll$paint_house
+
+bll <- bll %>%
+  mutate(paintedhouse = case_when(
+    paint_house == "N" ~ "N",
+    paint_house == "Y" & paint_peel == "N" ~ "YN",
+    paint_house == "Y" & paint_peel == "Y" ~ "YY",    
+    TRUE ~ paintedhouse))
+table(bll$paintedhouse)
+
+```
+
+Bivariate associations - no battery workers
+
+```{r wilcoxon paint peel, echo=TRUE, include=TRUE}
+
+#create new data frame with no battery recycling workers
+bll_xbatt <- filter(bll, occup_recode=="Other")
+
+#double check - now N=97
+table(bll_xbatt$occup_recode)
+
+#bivariate associations
+reg_mat <- lm(bll_mean_ugdl_mat_ln ~ paintedhouse, data=bll_xbatt)
+#print the results
+summary(reg_mat)
+#print 95% confidence intervals for the regression coefficients
+confint(reg_mat)
+
+reg_cord <- lm(bll_mean_ugdl_cord_ln ~ paintedhouse, data=bll_xbatt)
+#print the results
+summary(reg_cord)
+#print 95% confidence intervals for the regression coefficients
+confint(reg_cord)
+
+```
+
+Live in a building undergoing renovation or construction (yes/no)
+
+```{r geomeans construction, echo=TRUE, include=TRUE}
+
+blls_descr_geo_construction <- bll %>% group_by(construction) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_construction)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference
+
+```{r wilcoxon construction, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~construction, data = bll)
+wilcox.test(bll_mean_ugdl_cord~construction, data = bll)
+
+```
+Bivariate associations 
+
+```{r, echo=TRUE, include=TRUE}
+
+reg2_mat <- lm(bll_mean_ugdl_mat_ln ~ construction, data=bll_xbatt)
+#print the results
+summary(reg2_mat)
+#print 95% confidence intervals for the regression coefficients
+confint(reg2_mat)
+
+reg2_cord <- lm(bll_mean_ugdl_cord_ln ~ construction, data=bll_xbatt)
+#print the results
+summary(reg2_cord)
+#print 95% confidence intervals for the regression coefficients
+confint(reg2_cord)
+
+```
+
+Residence near a dumpsite (i.e., ≤10m) (yes/no) 
+
+```{r geomeans dumpsite, echo=TRUE, include=TRUE}
+
+blls_descr_geo_dumpsite <- bll %>% group_by(dumpsite) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_dumpsite)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference
+
+```{r wilcoxon dumpsite, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~dumpsite, data = bll)
+wilcox.test(bll_mean_ugdl_cord~dumpsite, data = bll)
+
+```
+
+Bivariate associations 
+
+```{r, echo=TRUE, include=TRUE}
+
+reg3_mat <- lm(bll_mean_ugdl_mat_ln ~ dumpsite, data=bll_xbatt)
+#print the results
+summary(reg3_mat)
+#print 95% confidence intervals for the regression coefficients
+confint(reg3_mat)
+
+reg3_cord <- lm(bll_mean_ugdl_cord_ln ~ dumpsite, data=bll_xbatt)
+#print the results
+summary(reg3_cord)
+#print 95% confidence intervals for the regression coefficients
+confint(reg3_cord)
+
+```
+
+Residence close to battery recycling plant (yes/no)
+
+```{r geomeans battery recycling, echo=TRUE, include=TRUE}
+
+blls_descr_geo_battery <- bll %>% group_by(batteryrecycling) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_battery)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference
+
+```{r wilcoxon battery recycling, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~batteryrecycling, data = bll)
+wilcox.test(bll_mean_ugdl_cord~batteryrecycling, data = bll)
+
+```
+
+Bivariate associations 
+
+```{r, echo=TRUE, include=TRUE}
+
+reg4_mat <- lm(bll_mean_ugdl_mat_ln ~ batteryrecycling, data=bll_xbatt)
+#print the results
+summary(reg4_mat)
+#print 95% confidence intervals for the regression coefficients
+confint(reg4_mat)
+
+reg4_cord <- lm(bll_mean_ugdl_cord_ln ~ batteryrecycling, data=bll_xbatt)
+#print the results
+summary(reg4_cord)
+#print 95% confidence intervals for the regression coefficients
+confint(reg4_cord)
+
+```
+
+Consumption of non-food items such as stones and soil during pregnancy (yes/no)
+
+```{r geomeans pica, echo=TRUE, include=TRUE}
+
+blls_descr_geo_pica <- bll %>% group_by(pica) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_pica)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference
+
+```{r wilcoxon pica, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~pica, data = bll)
+wilcox.test(bll_mean_ugdl_cord~pica, data = bll)
+
+```
+
+Bivariate associations 
+
+```{r, echo=TRUE, include=TRUE}
+
+reg5_mat <- lm(bll_mean_ugdl_mat_ln ~ pica, data=bll_xbatt)
+#print the results
+summary(reg5_mat)
+#print 95% confidence intervals for the regression coefficients
+confint(reg5_mat)
+
+reg5_cord <- lm(bll_mean_ugdl_cord_ln ~ pica, data=bll_xbatt)
+#print the results
+summary(reg5_cord)
+#print 95% confidence intervals for the regression coefficients
+confint(reg5_cord)
+
+```
+
+Drinking water passes through old pipes and fixtures (yes/no) 
+
+```{r geomeans old pipes, echo=TRUE, include=TRUE}
+
+blls_descr_geo_oldpipes <- bll %>% group_by(old_pipes) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_oldpipes)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference
+
+```{r wilcoxon old pipes, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~old_pipes, data = bll)
+wilcox.test(bll_mean_ugdl_cord~old_pipes, data = bll)
+
+```
+
+```{r, echo=TRUE, include=TRUE}
+
+reg6_mat <- lm(bll_mean_ugdl_mat_ln ~ old_pipes, data=bll_xbatt)
+#print the results
+summary(reg6_mat)
+#print 95% confidence intervals for the regression coefficients
+confint(reg6_mat)
+
+reg6_cord <- lm(bll_mean_ugdl_cord_ln ~ old_pipes, data=bll_xbatt)
+#print the results
+summary(reg6_cord)
+#print 95% confidence intervals for the regression coefficients
+confint(reg6_cord)
+
+```
+
+Use old painted pottery or glazed pottery at home (yes/no) 
+
+```{r geomeans pottery, echo=TRUE, include=TRUE}
+
+blls_descr_geo_pottery <- bll %>% group_by(glazed_pottery) %>%
+            summarize(n = n(),
+            bll_ugdl_mat_geomean = round(geoMean(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_mat_gsd = round(geoSD(bll_mean_ugdl_mat, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_geomean = round(geoMean(bll_mean_ugdl_cord, na.rm=TRUE), digits=2),
+            bll_ugdl_cord_gsd = round(geoSD(bll_mean_ugdl_cord, na.rm=TRUE), digits=2)) 
+flextable(blls_descr_geo_pottery)
+
+```
+Wilcoxon Rank-Sum (non-parametric) test of difference
+
+```{r wilcoxon pottery, echo=TRUE, include=TRUE}
+
+wilcox.test(bll_mean_ugdl_mat~glazed_pottery, data = bll)
+wilcox.test(bll_mean_ugdl_cord~glazed_pottery, data = bll)
+
+```
+
+```{r, echo=TRUE, include=TRUE}
+
+reg7_mat <- lm(bll_mean_ugdl_mat_ln ~ glazed_pottery, data=bll_xbatt)
+#print the results
+summary(reg7_mat)
+#print 95% confidence intervals for the regression coefficients
+confint(reg7_mat)
+
+reg7_cord <- lm(bll_mean_ugdl_cord_ln ~ glazed_pottery, data=bll_xbatt)
+#print the results
+summary(reg7_cord)
+#print 95% confidence intervals for the regression coefficients
+confint(reg7_cord)
+
+```
+
+___
+
+#Multivariable linear regressions - maternal BLL
+
+Base model - controlling for age 
+
+```{r regression - base model, echo=TRUE, include=TRUE}
+
+names(bll)
+
+#fit the model
+basereg <- lm(bll_mean_ugdl_mat ~ age + occup_recode, data=bll)
+
+#print the results
+summary(basereg)
+
+#print 95% confidence intervals for the regression coefficients
+confint(basereg)
+
+```
+
+Regression diagnostics
+(source of regression diagnostics code: https://stats.oarc.ucla.edu/wp-content/uploads/2019/02/R_reg_part2.html; accessed 4 March 2023)
+
+Plot residuals to check for outliers/extreme values
+
+```{r regression diagnostics - base model, echo=TRUE, include=TRUE}
+#put the residuals in a new variable using a function (residuals)
+bll$resids_base <- basereg$residuals
+
+#plot residuals on y axis (x axis is index) 
+p_resids_base <- plot(bll$resids_base, ylab="Residual")
+#add horizontal lines 3 and -3 to identify outliers/extreme values, defined as outside 3 SD from mean - there are lots of large residuals - if we log transform, what happens
+abline(h =c(-3,0,3), lty = 2)
+
+```
+Try ln transformed BLL
+
+```{r base model - log transformed , echo=TRUE, include=TRUE}
+
+#fit the model
+basereg_ln <- lm(bll_mean_ugdl_mat_ln ~ age + occup_recode, data=bll)
+
+#print the results
+summary(basereg_ln)
+
+#print 95% confidence intervals for the regression coefficients
+confint(basereg_ln)
+
+##put the residuals in a new variable
+bll$resids_baseln <- basereg_ln$residuals
+
+#plot residuals on y axis (x axis is index) - residuals shrink way down - do we care?
+p_resids_baseln <- plot(bll$resids_baseln, ylab="Residual")
+#add horizontal line at 0
+abline(h=0, lty=2)
+
+```
+Check for homoscedasticity - variance of the residuals should be homogeneous, i.e., plot of residuals vs. fitted values should appear evenly scattered with no trumpet pattern
+
+```{r base model - residuals vs. fitted , echo=TRUE, include=TRUE}
+
+#put the fitted values into new variables using a function (fitted.values)
+bll$fitted_base <- basereg$fitted.values
+bll$fitted_baseln <- basereg_ln$fitted.values
+
+residsvfitted <- plot(bll$resids_base ~ bll$fitted_base)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfitted
+
+#ln transformed
+residsvfitted_ln <- plot(bll$resids_baseln ~ bll$fitted_baseln)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfitted_ln
+
+#there's a bit of a trumpet pattern - what happens if we remove the battery recycling workers?
+
+``` 
+Refit models without the battery recycling workers
+
+```{r regression without battery workers - base model, echo=TRUE, include=TRUE}
+
+#create new data frame with no battery recycling workers
+bll_xbatt <- filter(bll, occup_recode=="Other")
+
+#double check - now N=97
+table(bll_xbatt$occup_recode)
+
+#fit the model - just age now in the base model, no occupation b/c the battery recyclers are out
+basereg_xbatt <- lm(bll_mean_ugdl_mat ~ age, data=bll_xbatt)
+
+#print the results
+summary(basereg_xbatt)
+
+#print 95% confidence intervals for the regression coefficients
+confint(basereg_xbatt)
+
+```
+
+Plot residuals to check for outliers/extreme values
+
+```{r regression diagnostics - base model, echo=TRUE, include=TRUE}
+#put the residuals in a new variable using a function (residuals)
+bll_xbatt$resids_base <- basereg_xbatt$residuals
+
+#plot residuals on y axis (x axis is index) 
+p_resids_base_xbatt <- plot(bll_xbatt$resids_base, ylab="Residual")
+#add horizontal lines 3 and -3 to identify outliers/extreme values, defined as outside 3 SD from mean - there are lots of large residuals - if we log transform, what happens
+abline(h =c(-3,0,3), lty = 2)
+
+```
+Try ln transformed BLL
+
+```{r base model - log transformed , echo=TRUE, include=TRUE}
+
+#fit the model
+basereg_ln_xbatt <- lm(bll_mean_ugdl_mat_ln ~ age, data=bll_xbatt)
+
+#print the results
+summary(basereg_ln_xbatt)
+
+#print 95% confidence intervals for the regression coefficients
+confint(basereg_ln_xbatt)
+
+##put the residuals in a new variable
+bll_xbatt$resids_baseln <- basereg_ln_xbatt$residuals
+
+#plot residuals on y axis (x axis is index) - residuals shrink way down - do we care?
+p_resids_baseln_xbatt <- plot(bll_xbatt$resids_baseln, ylab="Residual")
+#add horizontal line at 0
+abline(h=0, lty=2)
+
+#calculate percent change using regression coefficient & CIs by hand
+perc_change <- format(round((exp(0.101220)-1)*100, digits=0), scientific=FALSE)
+perc_change_lower <- format(round((exp(0.08576913)-1)*100, digits=0), scientific=FALSE)
+perc_change_upper <- format(round((exp(0.1166706)-1)*100, digits=0), scientific=FALSE)
+
+perc_change
+perc_change_lower
+perc_change_upper
+
+```
+Check for homoscedasticity - variance of the residuals should be homogeneous, i.e., plot of residuals vs. fitted values should appear evenly scattered with no trumpet pattern
+
+```{r base model - residuals vs. fitted , echo=TRUE, include=TRUE}
+
+#put the fitted values into new variables using a function (fitted.values)
+bll_xbatt$fitted_base <- basereg_xbatt$fitted.values
+bll_xbatt$fitted_baseln <- basereg_ln_xbatt$fitted.values
+
+residsvfitted_xbatt <- plot(bll_xbatt$resids_base ~ bll_xbatt$fitted_base)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfitted_xbatt
+
+#looks better-- may be some outliers/influential points to worry about
+
+#ln transformed
+residsvfittedln_xbatt <- plot(bll_xbatt$resids_baseln ~ bll_xbatt$fitted_baseln)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfittedln_xbatt
+
+#less of a trumpet pattern?
+
+``` 
+
+
+Mixed regression model with residence location as random effect ln transformed BLL
+
+```{r base model - log transformed , echo=TRUE, include=TRUE}
+
+#fit the model - with random slopes and intercepts
+basereg_ln_xbatt_mix <- lmer(bll_mean_ugdl_mat_ln ~ age + (1 + age | residence_area), data=bll_xbatt)
+
+#print the results
+summary(basereg_ln_xbatt_mix)
+
+logLik(basereg_ln_xbatt_mix, REML=TRUE)
+
+#use stargazer package to present results
+library(stargazer)
+stargazer(basereg_ln_xbatt_mix, type="text",
+          digits=3, star.cutoffs = c(0.05, 0.01, 0.001), digit.separator = "")
+
+#diagnostic plots - fitted vs. residuals
+plot(basereg_ln_xbatt_mix, type= c("p", "smooth"))
+
+#diagnostic plots - quantile-quantile plots - Q-Q plot looks OK
+library(lattice)
+qqmath(basereg_ln_xbatt_mix, id = 0.05)
+
+```
+
+Visualize the random effects (reference:https://ourcodingclub.github.io/tutorials/mixed-models/)
+
+```{r}
+
+library(ggeffects)
+
+# Extract the prediction data frame
+pred.mm <- ggpredict(basereg_ln_xbatt_mix, terms = c("age"))  # this gives overall predictions for the model
+
+# Plot the predictions 
+
+re_plot1 <- ggplot(pred.mm) + 
+   geom_line(aes(x = x, y = predicted)) +          # slope
+   geom_ribbon(aes(x = x, ymin = predicted - std.error, ymax = predicted + std.error), 
+               fill = "lightgrey", alpha = 0.5) +  # error band
+   geom_point(data=bll_xbatt,                      # adding the raw data (scaled values)
+              aes(x = age, y = bll_mean_ugdl_mat_ln, colour = residence_area)) + 
+   labs(x = "Age", y = "ln maternal BLL", 
+        title = "Age vs. ln maternal BLL") + 
+   theme_minimal()
+re_plot1
+
+```
+
+Another way to visualize the random effects (reference:https://ourcodingclub.github.io/tutorials/mixed-models/)
+
+```{r}
+
+re_plot2 <- ggpredict(basereg_ln_xbatt_mix, terms = c("age", "residence_area"), type = "re") %>% 
+   plot() +
+   labs(x = "Age", y = "ln maternal BLL", title = "Age vs. ln maternal BLL") + 
+   theme_minimal()
+re_plot2
+
+```
+
+A third way to visualize the random effects - NOTE: this doesn't seem to work (reference:https://ourcodingclub.github.io/tutorials/mixed-models/)
+
+```{r}
+
+library(sjPlot)
+library(glmmTMB)
+re.effects <- plot_model(basereg_ln_xbatt_mix, type="re", show.values = TRUE)
+
+```
+
+fit reduced model with dropped fixed effect - AIC jumps up
+
+```{r base model - log transformed , echo=TRUE, include=TRUE}
+
+#fit the model - with random slopes and intercepts
+basereg_ln_xbatt_mix_red <- lmer(bll_mean_ugdl_mat_ln ~ 1 + (1|residence_area), data=bll_xbatt)
+
+#print the results
+summary(basereg_ln_xbatt_mix_red)
+
+logLik(basereg_ln_xbatt_mix_red, REML=TRUE)
+
+#use stargazer package to present results
+stargazer(basereg_ln_xbatt_mix_red, type="text",
+          digits=3, star.cutoffs = c(0.05, 0.01, 0.001), digit.separator = "")
+
+#diagnostic plots - fitted vs. residuals
+plot(basereg_ln_xbatt_mix_red, type= c("p", "smooth"))
+
+#diagnostic plots - quantile-quantile plots - Q-Q plot looks OK
+qqmath(basereg_ln_xbatt_mix_red, id = 0.05)
+
+```
+
+Fit the full mixed regression model with residence location as random effect
+
+```{r base model - log transformed , echo=TRUE, include=TRUE}
+
+#fit the model - with random slopes and intercepts
+bll_xbatt$residence_area <- as.factor(bll_xbatt$residence_area)
+str(bll_xbatt$residence_area)
+
+fullreg_ln_xbatt_mix <- lmer(bll_mean_ugdl_mat_ln ~ age + educ_recode + paintedhouse + construction + dumpsite + batteryrecycling + pica + old_pipes + glazed_pottery + (1 | residence_area), data=bll_xbatt)
+
+help('isSingular')
+
+#print the results
+summary(fullreg_ln_xbatt_mix)
+
+logLik(fullreg_ln_xbatt_mix, REML=TRUE)
+
+#use stargazer package to present results
+stargazer(fullreg_ln_xbatt_mix, type="text",
+          digits=3, star.cutoffs = c(0.05, 0.01, 0.001), digit.separator = "")
+
+#diagnostic plots - fitted vs. residuals
+plot(fullreg_ln_xbatt_mix, type= c("p", "smooth"))
+
+#diagnostic plots - quantile-quantile plots - Q-Q plot looks OK
+qqmath(fullreg_ln_xbatt_mix, id = 0.05)
+
+```
+
+
+Check for homoscedasticity - variance of the residuals should be homogeneous, i.e., plot of residuals vs. fitted values should appear evenly scattered with no trumpet pattern
+
+```{r base model - residuals vs. fitted , echo=TRUE, include=TRUE}
+
+#put the fitted values into new variables using a function (fitted.values)
+bll_xbatt$fitted_base <- basereg_xbatt$fitted.values
+bll_xbatt$fitted_baseln <- basereg_ln_xbatt$fitted.values
+
+residsvfitted_xbatt <- plot(bll_xbatt$resids_base ~ bll_xbatt$fitted_base)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfitted_xbatt
+
+#looks better-- may be some outliers/influential points to worry about
+
+#ln transformed
+residsvfittedln_xbatt <- plot(bll_xbatt$resids_baseln ~ bll_xbatt$fitted_baseln)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfittedln_xbatt
+
+#less of a trumpet pattern?
+
+``` 
+
+
+
+Cord 
+
+```{r base model - log transformed , echo=TRUE, include=TRUE}
+
+#fit the model
+basereg_ln_xbatt_cord <- lm(bll_mean_ugdl_cord_ln ~ age, data=bll_xbatt)
+
+#print the results
+summary(basereg_ln_xbatt_cord)
+
+#print 95% confidence intervals for the regression coefficients
+confint(basereg_ln_xbatt_cord)
+
+#calculate percent change using regression coefficient & CIs by hand
+perc_change <- format(round((exp(0.05312)-1)*100, digits=0), scientific=FALSE)
+perc_change_lower <- format(round((exp(0.03272639)-1)*100, digits=0), scientific=FALSE)
+perc_change_upper <- format(round((exp(0.07350453)-1)*100, digits=0), scientific=FALSE)
+
+perc_change
+perc_change_lower
+perc_change_upper
+
+```
+
+ln-transformed BLLs, no battery recycling workers - now we can fit the other 
+
+```{r I-LEIP base model with diagnostics - log transformed , echo=TRUE, include=TRUE}
+
+#fit the model
+basereg_ln_xbatt <- lm(bll_mean_ugdl_mat_ln ~ age, data=bll_xbatt)
+
+#print the results
+summary(basereg_ln_xbatt)
+
+#print 95% confidence intervals for the regression coefficients
+confint(basereg_ln_xbatt)
+
+##put the residuals in a new variable
+bll_xbatt$resids_baseln <- basereg_ln_xbatt$residuals
+
+#put the fitted values into new variables using a function (fitted.values)
+bll_xbatt$fitted_baseln <- basereg_ln_xbatt$fitted.values
+
+#residuals plot
+p_resids_baseln_xbatt <- plot(bll_xbatt$resids_baseln, ylab="Residual")
+#add horizontal line at 0
+abline(h=0, lty=2)
+
+#residuals vs. fitted
+residsvfittedln_xbatt <- plot(bll_xbatt$resids_baseln ~ bll_xbatt$fitted_baseln)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfittedln_xbatt
+
+#test for linearity of the residuals using a normal qq plot (although our sample size is fairly large so maybe this isn't as important as the homoscedasticity assumption) - some observations do fall off the line 
+qqnorm(bll_xbatt$resids_baseln)
+qqline(bll_xbatt$resids_baseln)
+
+```
+
+Add in the other important covariates all at once and assess model fit
+
+```{r full model with diagnostics - log transformed , echo=TRUE, include=TRUE}
+
+#check variable types
+class(bll_xbatt$age)
+bll_xbatt$educ_recode <- as.factor(bll_xbatt$educ_recode)
+class(bll_xbatt$educ_recode)
+bll_xbatt$paintedhouse <- as.factor(bll_xbatt$paintedhouse)
+class(bll_xbatt$paintedhouse)
+bll_xbatt$construction <- as.factor(bll_xbatt$construction)
+class(bll_xbatt$construction)
+bll_xbatt$dumpsite <- as.factor(bll_xbatt$dumpsite)
+class(bll_xbatt$dumpsite)
+bll_xbatt$batteryrecycling <- as.factor(bll_xbatt$batteryrecycling)
+class(bll_xbatt$batteryrecycling)
+bll_xbatt$pica <- as.factor(bll_xbatt$pica)
+class(bll_xbatt$pica)
+bll_xbatt$old_pipes <- as.factor(bll_xbatt$old_pipes)
+class(bll_xbatt$old_pipes)
+bll_xbatt$glazed_pottery <- as.factor(bll_xbatt$glazed_pottery)
+class(bll_xbatt$glazed_pottery)
+
+#fit the full model (we can "afford" around 9 predictors on the righthand side because our sample size is N=97)
+fullreg_ln_xbatt <- lm(bll_mean_ugdl_mat_ln ~ age + educ_recode + paintedhouse + construction + dumpsite + batteryrecycling + pica + old_pipes + glazed_pottery, data=bll_xbatt)
+
+#save the results for plotting
+summary(fullreg_ln_xbatt)
+coeffs_mat <- summary(fullreg_ln_xbatt)$coefficients
+coeffs_mat <- as.data.frame(coeffs_mat)
+coeffs_mat <- cbind( rownames(coeffs_mat), coeffs_mat)
+names(coeffs_mat)
+coeffs_mat <- coeffs_mat %>% 
+  rename("Predictor" = "rownames(coeffs_mat)")
+View(coeffs_mat)
+
+#print 95% confidence intervals for the regression coefficients
+CIs_mat <- confint(fullreg_ln_xbatt)
+CIs_mat <- as.data.frame(CIs_mat)
+CIs_mat <- cbind( rownames(CIs_mat), CIs_mat)
+names(CIs_mat)
+CIs_mat <- CIs_mat %>% 
+  rename("Predictor" = "rownames(CIs_mat)",
+         "lower_025" = "2.5 %",
+         "upper_975" = "97.5 %")
+View(CIs_mat)
+
+#merge files
+fullreg_ln_xbatt_mat <- left_join(coeffs_mat, CIs_mat, by="Predictor")
+View(fullreg_ln_xbatt_mat)
+
+names(fullreg_ln_xbatt_mat)
+
+#calculate percent change using regression coefficient
+fullreg_ln_xbatt_mat$perc_change <- format(round((exp(fullreg_ln_xbatt_mat$Estimate)-1)*100, digits=0), scientific=FALSE)
+
+fullreg_ln_xbatt_mat$perc_change_lower <- format(round((exp(fullreg_ln_xbatt_mat$lower_025)-1)*100, digits=0), scientific=FALSE)
+fullreg_ln_xbatt_mat$perc_change_upper <- format(round((exp(fullreg_ln_xbatt_mat$upper_975)-1)*100, digits=0), scientific=FALSE)
+
+View(fullreg_ln_xbatt_mat)
+
+write.csv(fullreg_ln_xbatt_mat, "fullreg_ln_xbatt_mat.csv")
+
+##put the residuals in a new variable
+bll_xbatt$resids_fullln <- fullreg_ln_xbatt$residuals
+
+#put the fitted values into new variables using a function (fitted.values)
+bll_xbatt$fitted_fullln <- fullreg_ln_xbatt$fitted.values
+
+#residuals plot
+p_resids_fullln_xbatt <- plot(bll_xbatt$resids_fullln, ylab="Residual")
+#add horizontal line at 0
+abline(h=0, lty=2)
+
+#residuals vs. fitted
+residsvfittedln_xbatt <- plot(bll_xbatt$resids_fullln ~ bll_xbatt$fitted_fullln)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfittedln_xbatt
+
+#test for linearity of the residuals using a normal qq plot (although our sample size is fairly large so maybe this isn't as important as the homoscedasticity assumption)
+
+qqnorm(bll_xbatt$resids_fullln)
+qqline(bll_xbatt$resids_fullln)
+
+```
+
+Test interaction between paint & pottery variables, per EHP reviewer comment (October 2023)
+
+```{r}
+
+fullreg_ln_xbatt_ix <- lm(bll_mean_ugdl_mat_ln ~ age + educ_recode + paintedhouse + construction + dumpsite + batteryrecycling + pica + old_pipes + glazed_pottery + paintedhouse*glazed_pottery, data=bll_xbatt)
+
+#save the results for plotting
+summary(fullreg_ln_xbatt_ix)
+```
+
+Fit cord blood model
+
+```{r cord blood model with diagnostics - log transformed , echo=TRUE, include=TRUE}}
+
+forest_df_long <- forest_df_dummy %>% select(mat_or_cord) %>%
+  pivot_longer(~mat_or_cord)
+View(forest_df_long)
+
+fullreg_ln_xbatt_cord <- lm(bll_mean_ugdl_cord_ln ~ age + educ_recode + paintedhouse + construction + dumpsite + batteryrecycling + pica + old_pipes + glazed_pottery, data=bll_xbatt)
+
+#save the results for plotting
+summary(fullreg_ln_xbatt_cord)
+coeffs_cord <- summary(fullreg_ln_xbatt_cord)$coefficients
+coeffs_cord <- as.data.frame(coeffs_cord)
+coeffs_cord <- cbind( rownames(coeffs_cord), coeffs_cord)
+names(coeffs_cord)
+coeffs_cord <- coeffs_cord %>% 
+  rename("Predictor" = "rownames(coeffs_cord)")
+View(coeffs_cord)
+
+#print 95% confidence intervals for the regression coefficients
+CIs_cord <- confint(fullreg_ln_xbatt_cord)
+CIs_cord <- as.data.frame(CIs_cord)
+CIs_cord <- cbind( rownames(CIs_cord), CIs_cord)
+names(CIs_cord)
+CIs_cord <- CIs_cord %>% 
+  rename("Predictor" = "rownames(CIs_cord)",
+         "lower_025" = "2.5 %",
+         "upper_975" = "97.5 %")
+View(CIs_cord)
+
+#merge files
+fullreglnxbatt_cord <- left_join(coeffs_cord, CIs_cord, by="Predictor")
+
+#calculate percent change using regression coefficient
+fullreglnxbatt_cord$perc_change <- format(round((exp(fullreglnxbatt_cord$Estimate)-1)*100, digits=0), scientific=FALSE)
+fullreglnxbatt_cord$perc_change_lower <- format(round((exp(fullreglnxbatt_cord$lower_025)-1)*100, digits=0), scientific=FALSE)
+fullreglnxbatt_cord$perc_change_upper <- format(round((exp(fullreglnxbatt_cord$upper_975)-1)*100, digits=0), scientific=FALSE)
+
+View(fullreglnxbatt_cord)
+
+write.csv(fullreglnxbatt_cord, "fullreglnxbatt_cord.csv")
+
+##put the residuals in a new variable
+bll_xbatt$resids_fullln_cord <- fullreg_ln_xbatt_cord$residuals
+table(bll_xbatt$resids_fullln_cord)
+
+#put the fitted values into new variables using a function (fitted.values)
+bll_xbatt$fitted_fullln_cord <- fullreg_ln_xbatt_cord$fitted.values
+table(bll_xbatt$fitted_fullln_cord)
+
+#residuals plot
+p_resids_fullln_xbatt_cord <- plot(bll_xbatt$resids_fullln_cord, ylab="Residual")
+#add horizontal line at 0
+abline(h=0, lty=2)
+
+#residuals vs. fitted - this plot isn't working for some reason (gives "NULL")
+residsvfittedln_xbatt_cord <- plot(bll_xbatt$fitted_fullln_cord, bll_xbatt$resids_fullln_cord)
+#add horizontal line at 0
+abline(h=0, lty=2)
+residsvfittedln_xbatt_cord
+
+#test for linearity of the residuals using a normal qq plot (although our sample size is fairly large so maybe this isn't as important as the homoscedasticity assumption) 
+
+qqnorm(bll_xbatt$resids_fullln_cord)
+qqline(bll_xbatt$resids_fullln_cord)
+
+```
+
+Test interaction between paint & pottery variables, per EHP reviewer comment (October 2023)
+
+```{r}
+
+fullreg_ln_xbatt_cord_ix <- lm(bll_mean_ugdl_cord_ln ~ age + educ_recode + paintedhouse + construction + dumpsite + batteryrecycling + pica + old_pipes + glazed_pottery + paintedhouse*glazed_pottery, data=bll_xbatt)
+
+summary(fullreg_ln_xbatt_cord_ix)
+
+```
+
+Merge maternal & cord blood regression results so they can be plotted on the same forest plot
+
+```{r}
+fullreg_ln_xbatt_mat$mat_or_cord <- "mat"
+fullreglnxbatt_cord$mat_or_cord <- "cord"
+View(fullreg_ln_xbatt_mat)
+View(fullreglnxbatt_cord)
+
+forest_df_comb <- rbind(fullreg_ln_xbatt_mat, fullreglnxbatt_cord)
+
+View(forest_df_comb)
+
+```
+Forest plots for EHP Research Letter
+
+```{r create input data frame (df) }
+
+#rename the predictors for plot
+forest_df_comb <- forest_df_comb %>%
+  mutate(Predictor=recode(Predictor, 
+                         "age" = "Maternal age (years)",
+                         "educ_recodePrimary" = "Primary school", 
+                         "educ_recodeSecondary or higher" = "Secondary school/higher", 
+                         "paintedhouseYN" = "Painted house, no peeling/chipping",  
+                         "paintedhouseYY"  = "Painted house with peeling/chipping",  
+                         "constructionY" = "House renovation/construction",
+                         "dumpsiteY" = "Live near dumpsite",
+                         "batteryrecyclingY" = "Live near battery recycling", 
+                         "picaY" = "Pica in pregnancy",
+                         "old_pipesY" = "Drink from old pipes", 
+                         "glazed_potteryY" = "Use glazed pottery"))
+
+table(forest_df_comb$Predictor)
+
+```
+
+Add referent categories to forest plot df 
+
+```{r}
+
+#education 
+View(forest_df_comb)
+
+forest_df_dummy <- forest_df_comb %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=3))
+View(forest_df_dummy)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "No formal education (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+View(forest_df_dummy)
+
+#live in painted house
+forest_df_dummy <- forest_df_dummy %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=6))
+View(forest_df_dummy)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "Do not live in painted house (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+View(forest_df_dummy)
+
+#house renovation/construction
+forest_df_dummy <- forest_df_dummy %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=9))
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "No house renovation/construction (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+View(forest_df_dummy)
+
+#live near dumpsite
+forest_df_dummy <- forest_df_dummy %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=11))
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "Do not live near dumpsite (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+View(forest_df_dummy)
+
+#live near battery recycling
+forest_df_dummy <- forest_df_dummy %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=13))
+
+View(forest_df_dummy)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "Do not live near battery recycling (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+View(forest_df_dummy)
+
+#pica in pregnancy
+forest_df_dummy <- forest_df_dummy %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=15))
+
+View(forest_df_dummy)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "No pica in pregnancy (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+View(forest_df_dummy)
+
+#drink from old pipes
+forest_df_dummy <- forest_df_dummy %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=17))
+
+View(forest_df_dummy)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "Do not drink from old pipes (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+#use glazed pottery
+forest_df_dummy <- forest_df_dummy %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=19))
+
+View(forest_df_dummy)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Predictor = replace_na(Predictor, "Do not use glazed pottery (Ref.)")
+)
+
+forest_df_dummy <- forest_df_dummy %>% mutate(
+  Estimate = ifelse(is.na(Estimate), 0, Estimate))
+
+View(forest_df_dummy)
+
+write.csv(forest_df_dummy, "forest_df_dummy.csv")
+
+```
+
+Create forest plot
+
+```{r facet wrap option}
+
+library(forcats) #this package helps reorder categories
+
+## plot inputs
+pd2 = position_dodge(width=0.65)
+Palette <- c("#0072B2", "#56B4E9")
+
+#don't plot the intercept (it is not statistically significant anyway)  
+forest_df <- forest_df_dummy %>% filter(!Predictor=="(Intercept)")
+
+table(forest_df$Predictor)
+
+#rename the faceting variable so it looks nicer on plot
+forest_df <- forest_df %>% 
+    mutate(mat_or_cord = case_when( 
+          mat_or_cord == "mat" ~ "Maternal blood (A)",
+          mat_or_cord == "cord" ~ "Cord blood (B)",
+          TRUE ~ mat_or_cord )) 
+
+#add blank rows to separate predictors so plots look nicer
+#between maternal age and education
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=2))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, " ")
+)
+
+#between maternal education and painted house categories
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=6))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, "  ")
+)
+
+#between painted house and home renovation categories
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=10))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, "   ")
+)
+
+#between home renovation and live near dumpsite categories
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=13))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, "    ")
+)
+
+#between live near dumpsite and battery recycling categories
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=16))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, "     ")
+)
+
+#between battery recycling and pica categories
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=19))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, "      ")
+)
+
+#between pica and drink from old pipes categories
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=22))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, "       ")
+)
+
+#between  old pipes and glazed pottery categories
+forest_df <- forest_df %>%
+  as_tibble() %>%
+  group_by(mat_or_cord) %>%
+  group_modify(~ add_row(.x, .before=25))
+
+names(forest_df)
+forest_df <- forest_df %>% mutate(
+  Predictor = replace_na(Predictor, "        ")
+)
+
+View(forest_df)
+
+#reorder the variables to highlight main effect
+forest_df_relevel <- forest_df %>%
+    mutate(Predictor = fct_rev(fct_relevel(Predictor, "Maternal age (years)", " ", "No formal education (Ref.)", "Primary school", "Secondary school/higher", "  ", "Do not live in painted house (Ref.)", "Painted house, no peeling/chipping", "Painted house with peeling/chipping", 
+"   ", "No house renovation/construction (Ref.)","House renovation/construction", "    ", "Do not live near dumpsite (Ref.)", "Live near dumpsite", "     ", "Do not live near battery recycling (Ref.)","Live near battery recycling", "      ", "No pica in pregnancy (Ref.)", "Pica in pregnancy",  "       ", "Do not drink from old pipes (Ref.)", "Drink from old pipes",  "        ", "Do not use glazed pottery (Ref.)", "Use glazed pottery")))
+View(forest_df_relevel)
+
+forest_coeff_facet <- ggplot(forest_df_relevel, aes(x=Predictor, y=Estimate,
+                fill=mat_or_cord, group=mat_or_cord, color=mat_or_cord, shape=mat_or_cord)) + theme_minimal() + geom_pointrange(data=forest_df_relevel,
+            mapping=aes(x=Predictor, y=Estimate, ymin=lower_025, ymax=upper_975), shape=16) +
+  facet_wrap(~mat_or_cord, ncol=2, nrow=1) +          
+  geom_errorbar(aes(ymin=lower_025, ymax=upper_975), width=0.5, position=pd2) +
+                        geom_point(size = 1, position=pd2) +       
+                        coord_flip() +
+                        labs(x="Predictor", y="Coefficient estimate (95% CI)") +
+                        theme(title = element_text(size=10, family="Times New Roman", color="black"),
+                        axis.title = element_text(size=10, family="Times New Roman"),
+                        axis.text = element_text(size=8, family="Times New Roman", color="black"), 
+                        strip.text.x = element_text(size=10, family="Times New Roman")) +
+                        geom_hline(yintercept=0, linetype="solid", color="black", linewidth=0.75) +
+ scale_linetype_manual(values=c(1,5),labels=c("a","e")) +
+  scale_color_manual(values=c('Maternal blood (A)'="#0072B2", 'Cord blood (B)'="#56B4E9")) +
+    guides(colour = guide_legend(override.aes = list(shape = c(16))), linetype = FALSE, fill=FALSE, shape=FALSE) + 
+  theme(legend.position="none") + facet_grid(~factor(mat_or_cord, levels=c('Maternal blood (A)', 'Cord blood (B)')))
+print(forest_coeff_facet)
+
+#save plot
+ggsave <- function(..., bg = 'white') ggplot2::ggsave(..., bg = bg)
+
+ggsave("Figure 2.tiff", forest_coeff_facet, width=8, height=5, units="in")
+
+```
+
+```{r same plot option}
+
+pd2 = position_dodge(0.85)
+Palette <- c("#0072B2", "#56B4E9")
+
+forest_coeff_same <- ggplot(forest_df_relevel, aes(x=Predictor, y=Estimate, fill=mat_or_cord, color=mat_or_cord, shape=mat_or_cord)) + theme_minimal() + geom_pointrange(data=forest_df_relevel,
+            mapping=aes(x=Predictor, y=Estimate, ymin=lower_025, ymax=upper_975), shape=16, position=pd2) +
+  geom_errorbar(aes(ymin=lower_025, ymax=upper_975), width=1, position=pd2) +
+                        geom_point(size = 1.5, position=pd2) +       
+                        coord_flip() +
+                        labs(x="Predictor", y="Coefficient estimate (95% CI)") +
+                        theme(title = element_text(size=10, family="Arial"),
+                        axis.title = element_text(size=10, family="Arial"),
+                        axis.text = element_text(size=8, family="Arial")) +
+                        geom_hline(yintercept=0, linetype="solid", color="black", linewidth=0.75) +
+    guides(colour = guide_legend(override.aes = list(shape = c(16))), linetype = FALSE, fill=FALSE, shape=FALSE) + scale_x_discrete(drop=F) 
+print(forest_coeff_same)
+
+#save plot
+ggsave("forest_coeff_same.tiff", forest_coeff_same, width=8, height=5, units="in")
+
+```
+
+
+___
+
+#miscellaneous graphics
+
+BLL histograms
+
+```{r histogram maternal bll, echo=TRUE, include=TRUE}
+
+#maternal
+hist_bll_mat <- ggplot(bll, aes(x = bll_mean_ugdl_mat, fill=occup_recode)) + geom_histogram(binwidth=1) + 
+              scale_fill_manual(values=c("gray24", "gray58")) + guides(fill=guide_legend(title = "Occupation", title.theme=element_text(size=12, family="Times New Roman"))) + theme(axis.text = element_text(size = 12, family="Times New Roman"), axis.title = element_text(size = 12, family="Times New Roman"), legend.position = c(0.98, 0.80), legend.justification=c("right", "top"), legend.text = element_text(size=12, family="Times New Roman"), plot.margin = unit(c(0.3,0.3,0.3,0.3), "cm")) + geom_vline(xintercept=3.5, linetype="dashed", color="black", size=1) 
+hist_bll_mat_ehp <- hist_bll_mat + coord_cartesian(ylim=c(0,7), xlim=c(0,95)) + scale_y_continuous(name="Count", breaks=seq(0,7,1), expand=expansion(0.01)) + scale_x_continuous(name="Maternal blood Pb (ug/dL)", breaks=seq(0,95,5), expand=expansion(0.005)) + labs(tag="A") + theme(legend.box.background = element_rect(color="black"), panel.border = element_rect(color="black", fill=NA), plot.tag.position = c(1,0.99), plot.tag = element_text(vjust = 1.3, hjust = 2, family="Times New Roman", size=16)) 
+hist_bll_mat_ehp
+
+```
+
+```{r histogram cord bll, echo=TRUE, include=TRUE}
+
+#cord
+hist_bll_cord <- ggplot(bll, aes(x = bll_mean_ugdl_cord, fill=occup_recode)) + geom_histogram(binwidth=0.1) + scale_fill_manual(values=c("gray24", "gray58")) + theme(axis.text = element_text(size = 12, family="Times New Roman"), axis.title = element_text(size = 12, family="Times New Roman"), plot.margin = unit(c(0.3,0.3,0.3,0.3), "cm")) + geom_vline(xintercept=3.5, linetype="dashed", color="black", size=1)
+hist_bll_cord_ehp <- hist_bll_cord + coord_cartesian(ylim=c(0,8), xlim=c(0,10)) + scale_y_continuous(name="Count", breaks=seq(0,8,1), expand=expansion(0.009)) + scale_x_continuous(name="Cord blood Pb (ug/dL)", breaks=seq(0,10,1), expand=expansion(0.005)) + theme(panel.border = element_rect(color="black", fill=NA)) + labs(tag="B") + theme(legend.box.background = element_rect(color="black"), panel.border = element_rect(color="black", fill=NA), plot.tag.position = c(1,0.99), plot.tag = element_text(vjust = 1.3, hjust = 2, family="Times New Roman", size=16)) + theme(legend.position="none")
+hist_bll_cord_ehp
+
+```
+Stack histograms on top of each other and save as tiff with 600 dpi preferred by EHP https://ehp.niehs.nih.gov/authors/figures [accessed March 24, 2023]
+
+```{r multipanel histogram, echo=TRUE, include=TRUE}
+
+hist_bll_fig1_ehp <- grid.arrange(hist_bll_mat_ehp, hist_bll_cord_ehp, ncol=1)
+
+ggsave(hist_bll_fig1_ehp, filename="Figure 1.tiff", dpi=600)
+
+```
+
+Calculate percentiles
+
+```{r percentiles, echo=TRUE, include=TRUE}
+
+ptiles_mat <- mutate(bll, percentile_rank_mat = ntile(bll$bll_mean_ugdl_mat,100))
+ptiles_mat <- ptiles_mat %>% select(sample_id, bll_mean_ugdl_mat, percentile_rank_mat)
+ptiles_mat
+
+ptiles_cord <- mutate(bll, percentile_rank_cord = ntile(bll$bll_mean_ugdl_cord,100))
+ptiles_cord <- ptiles_cord %>% arrange(desc(percentile_rank_cord)) %>% select(sample_id, bll_mean_ugdl_cord, percentile_rank_cord)
+ptiles_cord 
+
+```
+
+Horizontal boxplots of maternal BLL by age category
+
+```{r boxplot age, echo=TRUE, include=TRUE}
+
+min(bll$bll_mean_ugdl_mat)
+max(bll$bll_mean_ugdl_mat)
+
+#untransformed
+box_age <- bll %>% 
+  ggplot(aes(x=bll_mean_ugdl_mat, y=age_cat)) +
+  geom_boxplot() + 
+  scale_x_continuous(name="Maternal blood Pb (ug/dL) (mean of triplicates)", 
+                     breaks=seq(0,100,5),
+                     limits=c(0,100)) + theme(axis.title.y=element_blank())
+box_age
+
+#ln transformed
+bll$bll_mean_ugdl_mat_ln <- log(bll$bll_mean_ugdl_mat)
+min(bll$bll_mean_ugdl_mat_ln)
+max(bll$bll_mean_ugdl_mat_ln)
+
+box_age_ln <- bll %>% 
+  ggplot(aes(x=bll_mean_ugdl_mat_ln, y=age_cat)) +
+  geom_boxplot() + 
+  scale_x_continuous(name="Log maternal blood Pb (mean of triplicates)", 
+                     breaks=seq(1,4.6,1),
+                     limits=c(1,4.6)) + theme(axis.title.y=element_blank())
+box_age_ln
+
+```
+
+Save data frame so you can use it again
+
+```{r save df, echo = FALSE, include = TRUE}
+
+readr::write_csv(bll, '~/Documents/r_projects/lumumba et al 2023/bll.csv')
+
+readr::write_csv(bll_xbatt, '~/Documents/r_projects/lumumba et al 2023/bll_xbatt.csv')
+
+library(readr)
+bll <- read_csv("bll.csv")
+View(bll)
+
+```
+
+___
+
+Oct 2023
+
+Response to EHP reviewer question: "Could the authors discuss and show the correlations between all of the potential lead factors? The majority of participants lived in a painted house (i.e. n=87), which may be highly correlated with other factors that are predictive of lead exposure but more downstream of housing conditions, such as drinking water, paint-related activities at home, ingesting non-food items."
+
+Mixed logistic regression models
+
+construction/renovation
+
+```{r, echo=TRUE, include=TRUE}
+
+names(bll_xbatt)
+
+bll_xbatt$sample_id <- as.factor(bll_xbatt$sample_id)
+str(bll_xbatt$sample_id)
+bll_xbatt$paint_house <- as.factor(bll_xbatt$paint_house)
+str(bll_xbatt$paint_house)
+bll_xbatt$construction <- as.factor(bll_xbatt$construction)
+str(bll_xbatt$construction)
+
+#pearson corr
+paintvreno <- cor.test(bll_xbatt$paint_house, bll_xbatt$construction, method=c("pearson"))
+
+#fit the model - with random slopes and intercepts
+paintvreno <- glmer(construction ~ paint_house + (1 | sample_id), data=bll_xbatt,
+family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+#print the results
+summary(paintvreno)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(paint_recode = case_when(
+    paint_house=="N" ~ 0, 
+    paint_house=="Y" ~ 1))
+table(bll_xbatt$paint_recode)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(construction_recode = case_when(
+    construction=="N" ~ 0, 
+    construction=="Y" ~ 1))
+table(bll_xbatt$construction_recode)
+
+cor.test(bll_xbatt$paint_recode, bll_xbatt$construction_recode, method="pearson")
+
+```
+
+Live near Pb recycling
+
+```{r, echo=TRUE, include=TRUE}
+
+names(bll_xbatt)
+
+bll_xbatt$batteryrecycling <- as.factor(bll_xbatt$batteryrecycling)
+str(bll_xbatt$batteryrecycling)
+
+#fit the model - with random slopes and intercepts
+paintvbatt <- glmer(batteryrecycling ~ paint_house + (1 | sample_id), data=bll_xbatt,
+family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+#print the results
+summary(paintvbatt)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(battery_recode = case_when(
+    batteryrecycling=="N" ~ 0, 
+    batteryrecycling=="Y" ~ 1))
+table(bll_xbatt$battery_recode)
+
+cor.test(bll_xbatt$paint_recode, bll_xbatt$battery_recode, method="pearson")
+
+```
+
+Drinking water passes through old pipes
+
+```{r, echo=TRUE, include=TRUE}
+
+names(bll_xbatt)
+
+bll_xbatt$old_pipes <- as.factor(bll_xbatt$old_pipes)
+str(bll_xbatt$old_pipes)
+
+#fit the model - with random slopes and intercepts
+paintvpipes <- glmer(old_pipes ~ paint_house + (1 | sample_id), data=bll_xbatt,
+family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+#print the results
+summary(paintvpipes)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(pipes_recode = case_when(
+    old_pipes=="N" ~ 0, 
+    old_pipes=="Y" ~ 1))
+table(bll_xbatt$pipes_recode)
+
+cor.test(bll_xbatt$paint_recode, bll_xbatt$pipes_recode, method="pearson")
+
+```
+
+Use painted/glazed pottery
+
+```{r, echo=TRUE, include=TRUE}
+
+names(bll_xbatt)
+
+bll_xbatt$glazed_pottery <- as.factor(bll_xbatt$glazed_pottery)
+str(bll_xbatt$glazed_pottery)
+table(bll_xbatt$glazed_pottery)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(pottery_recode = case_when(
+    glazed_pottery=="N" ~ 0, 
+    glazed_pottery=="Y" ~ 1))
+table(bll_xbatt$pottery_recode)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(paint_recode = case_when(
+    paint_house=="N" ~ 0, 
+    paint_house=="Y" ~ 1))
+table(bll_xbatt$paint_recode)
+
+#fit the model - with random slopes and intercepts
+paintvpottery <- glmer(pottery_recode ~ paint_recode + (1 | sample_id), data=bll_xbatt,
+family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+#print the results
+summary(paintvpottery)
+
+cor.test(bll_xbatt$paint_recode, bll_xbatt$pottery_recode, method="pearson")
+
+```
+
+Live near dumpsite
+
+```{r}
+
+names(bll_xbatt)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(dumpsite_recode = case_when(
+    dumpsite=="N" ~ 0, 
+    dumpsite=="Y" ~ 1))
+table(bll_xbatt$dumpsite_recode)
+
+cor.test(bll_xbatt$paint_recode, bll_xbatt$dumpsite_recode, method="pearson")
+
+```
+
+Pica in pregnancy
+
+```{r}
+
+names(bll_xbatt)
+
+bll_xbatt <- bll_xbatt %>%
+  mutate(pica_recode = case_when(
+    pica=="N" ~ 0, 
+    pica=="Y" ~ 1))
+table(bll_xbatt$pica_recode)
+
+cor.test(bll_xbatt$paint_recode, bll_xbatt$pica_recode, method="pearson")
+
+```
+
+
+Calculate geomeans of BLLs in xbatt datasets
+
+```{r bll geo means & SDs, echo=TRUE, include=TRUE}
+
+#use geoMean and geoSD functions in EnvStats package to calculate geo means & SDs
+library(dplyr)
+library(EnvStats)
+library(flextable)
+blls_xbatt_descr_geo <- bll_xbatt %>%
+  dplyr::summarize(n = n(),
+            bll_ugdl_mat_geomean = geoMean(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_mat_gsd = geoSD(bll_mean_ugdl_mat, na.rm=TRUE),
+            bll_ugdl_cord_geomean = geoMean(bll_mean_ugdl_cord, na.rm=TRUE),
+            bll_ugdl_cord_gsd = geoSD(bll_mean_ugdl_cord, na.rm=TRUE))
+flextable(blls_xbatt_descr_geo)
+
+```
+####END CODE
