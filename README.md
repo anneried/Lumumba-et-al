@@ -1,3 +1,3 @@
-# Lumumba-et-al-2023
+# Lumumba-et-al
 
-Please contact the corresponding author by email for access to the deidentified data input file in .csv format.
+This repository contains the deidentified data used to generate Table 1 as well as the data and Rmd script to generate Figure 1. 
